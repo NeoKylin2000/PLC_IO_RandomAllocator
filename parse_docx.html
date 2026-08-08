@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>DOCX Parser</title>
+</head>
+<body>
+<pre id="output">Loading...</pre>
+<script>
+async function parseDocx() {
+  try {
+    // Fetch the docx file
+    const response = await fetch('新实训题 电子及PLC.docx');
+    const buffer = await response.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+
+    // Parse ZIP format to find word/document.xml
+    const entries = parseZipEntries(bytes);
+
+    let documentXml = null;
+    for (const entry of entries) {
+      if (entry.name === 'word/document.xml') {
+        documentXml = entry;
+        break;
+      }
+    }
+
+    if (!documentXml) {
+      document.getElementById('output').textContent = 'No word/document.xml found. Entries: ' + entries.map(e => e.name).join(', ');
+      return;
+    }
+
+    // Decompress the entry
+    let xmlBytes;
+    if (documentXml.compressionMethod === 0) {
+      // Stored (no compression)
+      xmlBytes = bytes.slice(documentXml.dataOffset, documentXml.dataOffset + documentXml.compressedSize);
+    } else if (documentXml.compressionMethod === 8) {
+      // Deflate
+      const compressedData = bytes.slice(documentXml.dataOffset, documentXml.dataOffset + documentXml.compressedSize);
+      const ds = new DecompressionStream('deflate-raw');
+      const stream = new Blob([compressedData]).stream().pipeThrough(ds);
+      const decompressed = await new Response(stream).arrayBuffer();
+      xmlBytes = new Uint8Array(decompressed);
+    } else {
+      document.getElementById('output').textContent = 'Unknown compression method: ' + documentXml.compressionMethod;
+      return;
+    }
+
+    // Decode XML text
+    const decoder = new TextDecoder('utf-8');
+    const xmlText = decoder.decode(xmlBytes);
+
+    // Parse XML and extract text
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+    const paragraphs = xmlDoc.getElementsByTagName('w:p');
+    let text = '';
+    for (let i = 0; i < paragraphs.length; i++) {
+      const textElements = paragraphs[i].getElementsByTagName('w:t');
+      let line = '';
+      for (let j = 0; j < textElements.length; j++) {
+        line += textElements[j].textContent;
+      }
+      text += line + '\n';
+    }
+
+    document.getElementById('output').textContent = text;
+  } catch (e) {
+    document.getElementById('output').textContent = 'Error: ' + e.message + '\n' + e.stack;
+  }
+}
+
+function parseZipEntries(bytes) {
+  const entries = [];
+  const view = new DataView(bytes.buffer);
+
+  // Search for local file headers (PK\x03\x04 = 0x04034b50)
+  let offset = 0;
+  while (offset < bytes.length - 4) {
+    // Look for local file header signature
+    if (view.getUint32(offset, true) === 0x04034b50) {
+      const compressionMethod = view.getUint16(offset + 8, true);
+      const compressedSize = view.getUint32(offset + 18, true);
+      const uncompressedSize = view.getUint32(offset + 22, true);
+      const fileNameLength = view.getUint16(offset + 26, true);
+      const extraFieldLength = view.getUint16(offset + 28, true);
+
+      const fileNameStart = offset + 30;
+      const fileName = new TextDecoder('utf-8').decode(bytes.slice(fileNameStart, fileNameStart + fileNameLength));
+      const dataOffset = fileNameStart + fileNameLength + extraFieldLength;
+
+      entries.push({
+        name: fileName,
+        compressionMethod: compressionMethod,
+        compressedSize: compressedSize,
+        uncompressedSize: uncompressedSize,
+        dataOffset: dataOffset
+      });
+
+      // Move to next entry
+      offset = dataOffset + compressedSize;
+    } else {
+      offset++;
+    }
+  }
+
+  return entries;
+}
+
+parseDocx();
+</script>
+</body>
+</html>
