@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PLC 实训考核 I/O 随机分配器 — 开发文档</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Microsoft YaHei", "微软雅黑", "Microsoft YaHei UI", sans-serif;
+    background: #F3F3F3;
+    color: #1A1A1A;
+    line-height: 1.8;
+    padding: 40px 20px;
+  }
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    background: #FFFFFF;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    padding: 48px 56px;
+  }
+  h1 {
+    font-size: 26px;
+    color: #0078D4;
+    border-bottom: 2px solid #0078D4;
+    padding-bottom: 12px;
+    margin-bottom: 28px;
+  }
+  h2 {
+    font-size: 20px;
+    color: #1A1A1A;
+    margin-top: 36px;
+    margin-bottom: 14px;
+    padding-left: 12px;
+    border-left: 4px solid #0078D4;
+  }
+  h3 {
+    font-size: 16px;
+    color: #333;
+    margin-top: 24px;
+    margin-bottom: 10px;
+  }
+  p { margin-bottom: 10px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 14px;
+  }
+  th, td {
+    border: 1px solid #E0E0E0;
+    padding: 8px 12px;
+    text-align: left;
+  }
+  th {
+    background: #F5F5F5;
+    font-weight: bold;
+  }
+  tr:nth-child(even) { background: #FAFAFA; }
+  code {
+    background: #F0F0F0;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 13px;
+  }
+  pre {
+    background: #1E1E2E;
+    color: #CDD6F4;
+    padding: 16px 20px;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 14px 0;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: inherit;
+  }
+  strong { color: #0078D4; }
+  .footer {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid #E0E0E0;
+    text-align: center;
+    color: #999;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>PLC 实训考核 I/O 随机分配器 — 开发文档</h1>
+
+<h2>一、项目概述</h2>
+<p>本项目用于 PLC 实训模拟考试场景，对 5 个 PLC 实训项目的 I/O 点地址进行随机重新分配，避免考生背诵固定地址，保证考核公平性。</p>
+<p><strong>数据来源</strong>：《新实训题 电子及PLC》文档中 5 个 PLC 实训项目的 I/O 分配表。</p>
+<p><strong>分配规则</strong>：单选模式，每次只选择一个项目进行随机分配，从八进制地址池中随机抽取（项目内地址不重复）。</p>
+
+<h2>二、功能特性</h2>
+<table>
+<tr><th>功能</th><th>说明</th></tr>
+<tr><td>项目单选</td><td>左侧列表通过单选按钮选择一个实训项目，每次只能选一个</td></tr>
+<tr><td>随机分配</td><td>对当前选中的项目执行 I/O 地址随机分配</td></tr>
+<tr><td>结果展示</td><td>右侧表格展示当前项目的分配结果，输入点蓝色、输出点绿色</td></tr>
+<tr><td>复制当前</td><td>将当前查看项目的分配结果复制到剪贴板</td></tr>
+<tr><td>复制全部</td><td>将所有已分配项目的结果复制到剪贴板</td></tr>
+<tr><td>导出 TXT</td><td>将全部分配结果导出为文本文件，支持自定义保存路径</td></tr>
+<tr><td>重置</td><td>清空所有分配结果</td></tr>
+<tr><td>自动分配</td><td>程序启动时自动对默认选中项目执行一次随机分配，打开即见结果</td></tr>
+</table>
+
+<h2>三、技术架构</h2>
+<table>
+<tr><th>项目</th><th>说明</th></tr>
+<tr><td>编程语言</td><td>Python 3.14</td></tr>
+<tr><td>GUI 框架</td><td>tkinter + ttk（Python 标准库，无需额外依赖）</td></tr>
+<tr><td>界面风格</td><td>Windows 11 浅色卡片风格</td></tr>
+<tr><td>打包工具</td><td>PyInstaller 6.21.0</td></tr>
+<tr><td>运行平台</td><td>Windows 10/11</td></tr>
+</table>
+
+<h2>四、数据结构</h2>
+<h3>4.1 项目数据</h3>
+<p>每个 PLC 实训项目包含以下字段：</p>
+<pre><code>{
+    "id":      项目唯一标识（如 "plc1"）
+    "name":    项目全称
+    "short":   简称（用于左侧列表显示）
+    "inputs":  输入点功能名称列表
+    "outputs": 输出点功能名称列表
+}</code></pre>
+
+<h3>4.2 五个实训项目 I/O 统计</h3>
+<table>
+<tr><th>项目</th><th>输入点数</th><th>输出点数</th></tr>
+<tr><td>PLC实训一 多种液体混合</td><td>11</td><td>4</td></tr>
+<tr><td>PLC实训二 花样喷泉</td><td>4</td><td>4</td></tr>
+<tr><td>PLC实训三 交通灯</td><td>3</td><td>6</td></tr>
+<tr><td>PLC实训四 简易机械手</td><td>12</td><td>8</td></tr>
+<tr><td>PLC实训五 运输传送线</td><td>12</td><td>5</td></tr>
+</table>
+
+<h2>五、核心算法</h2>
+<h3>5.1 八进制地址池</h3>
+<p>PLC 的 I/O 地址按八进制编排：X0-X7, X10-X17, X20-X27 ...</p>
+<p>地址池生成函数：</p>
+<pre><code>def gen_octal_pool(prefix, count):
+    pool = []
+    for i in range(count):
+        pool.append(f"{prefix}{oct(i)[2:]}")
+    return pool</code></pre>
+<ul>
+<li>输入地址池：<code>X_POOL = gen_octal_pool("X", 16)</code> → <code>['X0'..'X7', 'X10'..'X17']</code></li>
+<li>输出地址池：<code>Y_POOL = gen_octal_pool("Y", 16)</code> → <code>['Y0'..'Y7', 'Y10'..'Y17']</code></li>
+<li>池容量 16，足以覆盖所有项目（最大 12 输入 / 8 输出）</li>
+</ul>
+
+<h3>5.2 随机分配</h3>
+<pre><code>def random_allocate(points, pool):
+    n = len(points)
+    addrs = random.sample(pool, n)     # 不重复随机抽取
+    return list(zip(points, addrs))</code></pre>
+<ul>
+<li>使用 <code>random.sample()</code> 保证项目内地址不重复</li>
+<li>单选模式下每次只对当前选中项目调用一次</li>
+</ul>
+
+<h3>5.3 单选模式实现</h3>
+<pre><code># 单选变量, 存储当前选中的项目 id
+self.selected_project = tk.StringVar(value=PROJECTS[0]["id"])
+
+# Radiobutton 绑定单选变量
+rb = ttk.Radiobutton(card, variable=self.selected_project,
+                     value=p["id"],
+                     command=lambda pid=p["id"]: self._on_select(pid))
+
+# 分配时只处理当前选中项目
+def do_allocate(self, silent=False):
+    pid = self.selected_project.get()
+    p = self._get_project(pid)
+    in_alloc = random_allocate(p["inputs"], X_POOL)
+    out_alloc = random_allocate(p["outputs"], Y_POOL)
+    ...</code></pre>
+
+<h2>六、界面设计</h2>
+<h3>6.1 布局</h3>
+<pre><code>+--------------------------------------------------+
+|  PLC 实训考核 I/O 随机分配器           [关于]    |
++-------------+------------------------------------+
+| 实训项目    |  [当前项目名称]                    |
+| (单选)      |  [随机分配] [复制当前] [复制全部]  |
+|             |  [导出TXT] [重置]                  |
+| (o) 液体混合|  +------+------------+------+----+ |
+| ( ) 花样喷泉|  | 序号 | I/O名称   | 类型 |地址| |
+| ( ) 交通灯  |  |  1   | 启动      | 输入 | X3 | |
+| ( ) 机械手  |  |  2   | 停止      | 输入 | X7 | |
+| ( ) 传送线  |  | ...  |           |      |    | |
++-------------+------------------------------------+
+| 就绪 · F5 随机分配 · Ctrl+C 复制当前             |
++--------------------------------------------------+</code></pre>
+
+<h3>6.2 配色方案（Windows 11 浅色）</h3>
+<table>
+<tr><th>元素</th><th>颜色值</th><th>说明</th></tr>
+<tr><td>主背景</td><td>#F3F3F3</td><td>Windows 11 浅色背景</td></tr>
+<tr><td>卡片白</td><td>#FFFFFF</td><td>表格/卡片背景</td></tr>
+<tr><td>主题蓝</td><td>#0078D4</td><td>强调按钮、输入点标签</td></tr>
+<tr><td>输出绿</td><td>#107C10</td><td>输出点标签</td></tr>
+<tr><td>主文字</td><td>#1A1A1A</td><td>标题/正文</td></tr>
+<tr><td>辅助文字</td><td>#6B6B6B</td><td>状态栏/提示</td></tr>
+</table>
+
+<h3>6.3 字体</h3>
+<p>全局统一使用 <strong>Microsoft YaHei UI</strong>（微软雅黑）。</p>
+
+<h2>七、使用指南</h2>
+<h3>7.1 操作流程</h3>
+<ol>
+<li>启动程序，自动对默认选中项目完成一次随机分配</li>
+<li>左侧通过单选按钮选择需要分配的实训项目（每次只能选一个）</li>
+<li>点击「随机分配」按钮（或按 F5）对当前选中项目执行随机分配</li>
+<li>切换到其他项目后可再次执行随机分配，已分配的结果会保留</li>
+<li>点击「复制当前」/「复制全部」复制结果到剪贴板</li>
+<li>点击「导出TXT」保存分配结果到文件</li>
+</ol>
+
+<h3>7.2 快捷键</h3>
+<table>
+<tr><th>快捷键</th><th>功能</th></tr>
+<tr><td>F5</td><td>随机分配（当前选中项目）</td></tr>
+<tr><td>Ctrl+C</td><td>复制当前项目结果</td></tr>
+</table>
+
+<h2>八、打包部署</h2>
+<h3>8.1 打包方式</h3>
+<p>采用 PyInstaller <code>--onedir</code> 模式，在英文临时目录打包后复制到目标路径，避免中文路径编码问题。</p>
+
+<h3>8.2 打包参数说明</h3>
+<table>
+<tr><th>参数</th><th>说明</th></tr>
+<tr><td>--noconsole</td><td>无控制台窗口（GUI 程序）</td></tr>
+<tr><td>--onedir</td><td>打包为目录形式（含 _internal 依赖目录）</td></tr>
+<tr><td>--name</td><td>输出文件名（英文）</td></tr>
+</table>
+
+<h3>8.3 运行环境</h3>
+<ul>
+<li>打包后生成 <code>PLC_IO_RandomAllocator</code> 目录（含 EXE 和 _internal），无需 Python 环境即可运行</li>
+<li>支持 Windows 10/11（64 位）</li>
+</ul>
+
+<h2>九、文件清单</h2>
+<table>
+<tr><th>文件名</th><th>说明</th></tr>
+<tr><td>plc_io_random_allocator.py</td><td>主程序源代码</td></tr>
+<tr><td>PLC_IO_RandomAllocator.spec</td><td>PyInstaller 打包配置</td></tr>
+<tr><td>PLC_IO_RandomAllocator.exe</td><td>打包后的可执行文件</td></tr>
+<tr><td>dev_doc.md</td><td>开发文档（Markdown）</td></tr>
+<tr><td>dev_doc.html</td><td>开发文档（网页）</td></tr>
+</table>
+
+<h2>十、规范符合性说明</h2>
+<table>
+<tr><th>规范条款</th><th>符合情况</th></tr>
+<tr><td>代码语言优先 Python</td><td>符合，使用 Python 3.14</td></tr>
+<tr><td>开发文档输出 md + html</td><td>符合，同步输出两种格式</td></tr>
+<tr><td>文档字体微软雅黑</td><td>符合，html 全局设置 Microsoft YaHei</td></tr>
+<tr><td>文件存放 E:\TraeWork</td><td>符合，存放于专属文件夹</td></tr>
+<tr><td>专属中文名文件夹</td><td>符合，文件夹名「PLC考试IO随机分配」</td></tr>
+<tr><td>文件名英文命名</td><td>符合，所有文件名均为英文</td></tr>
+<tr><td>交付前校验</td><td>符合，已完成语法验证 + GUI 冒烟测试 + EXE 运行验证</td></tr>
+</table>
+
+<div class="footer">PLC 实训考核 I/O 随机分配器 · 开发文档 · 更新日期 2026-08-03</div>
+
+</div>
+</body>
+</html>
