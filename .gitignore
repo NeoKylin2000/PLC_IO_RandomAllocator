@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+PLC_IO_RandomAllocator/
+*.exe
+新实训题*.docx
+docx_parser.js
+parse_docx.html
+read_docx.py
