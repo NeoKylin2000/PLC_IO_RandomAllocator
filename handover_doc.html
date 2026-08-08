@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PLC 实训考核 I/O 随机分配器 — 交接文档</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Microsoft YaHei", "微软雅黑", "Microsoft YaHei UI", sans-serif;
+    background: #F3F3F3;
+    color: #1A1A1A;
+    line-height: 1.8;
+    padding: 40px 20px;
+  }
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    background: #FFFFFF;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    padding: 48px 56px;
+  }
+  h1 {
+    font-size: 26px;
+    color: #0078D4;
+    border-bottom: 2px solid #0078D4;
+    padding-bottom: 12px;
+    margin-bottom: 28px;
+  }
+  h2 {
+    font-size: 20px;
+    color: #1A1A1A;
+    margin-top: 36px;
+    margin-bottom: 14px;
+    padding-left: 12px;
+    border-left: 4px solid #0078D4;
+  }
+  h3 {
+    font-size: 16px;
+    color: #333;
+    margin-top: 24px;
+    margin-bottom: 10px;
+  }
+  p { margin-bottom: 10px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 14px;
+  }
+  th, td {
+    border: 1px solid #E0E0E0;
+    padding: 8px 12px;
+    text-align: left;
+  }
+  th {
+    background: #F5F5F5;
+    font-weight: bold;
+  }
+  tr:nth-child(even) { background: #FAFAFA; }
+  code {
+    background: #F0F0F0;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 13px;
+  }
+  strong { color: #0078D4; }
+  .footer {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid #E0E0E0;
+    text-align: center;
+    color: #999;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>PLC 实训考核 I/O 随机分配器 — 交接文档</h1>
+
+<h2>一、任务背景</h2>
+<p>为 PLC 实训模拟考试场景开发一套 I/O 地址随机分配桌面程序。核心需求是让每个考生在考试时拿到不同的 I/O 地址分配方案，防止背诵固定地址，保证考核公平性。</p>
+<p>数据来源为《新实训题 电子及PLC》文档中 5 个 PLC 实训项目的 I/O 分配表，涵盖多种液体混合、花样喷泉、交通灯、简易机械手、运输传送线五个项目，I/O 点数从最少的 7 个（交通灯 3 输入 + 4 输出）到最多的 20 个（机械手 12 输入 + 8 输出）。</p>
+
+<h2>二、迭代历程</h2>
+<p>本次开发经历了四轮迭代，每轮均由用户反馈驱动：</p>
+
+<h3>2.1 初版（多选 + 浅色主题）</h3>
+<p>首版实现了完整的功能框架：左侧项目列表支持多选（Checkbutton），右侧 Treeview 表格展示分配结果，Windows 11 浅色卡片风格 UI。采用 PyInstaller <code>--onedir</code> 模式打包，因中文路径编码问题，最终通过"英文临时目录打包后复制"的策略解决。</p>
+
+<h3>2.2 单选模式改造</h3>
+<p>用户反馈"不能全选，每次只能选一个"。将 Checkbutton 替换为 Radiobutton，移除全选/取消按钮，分配逻辑从批量分配改为只对当前选中项目执行。已分配的项目结果会保留，切换项目后可以继续分配。</p>
+
+<h3>2.3 深色主题</h3>
+<p>用户要求"加一个深色主题，默认深色主题"。引入了 THEMES 字典管理两套配色方案：深色采用 Catppuccin Mocha 配色（<code>#1E1E2E</code> 底色 + <code>#89B4FA</code> 蓝色强调），浅色保持原有 Windows 11 风格。标题栏新增主题切换按钮（☀/☾），点击时重新配置所有 ttk Style、Canvas 背景、Treeview 标签颜色，并通过 Windows DWM API（<code>DWMWA_USE_IMMERSIVE_DARK_MODE</code>）同步切换标题栏深浅模式。默认启动深色主题。</p>
+
+<h3>2.4 自定义图标</h3>
+<p>用户反馈"左上角的羽毛图标不好看，改掉"。tkinter 默认显示的羽毛（Tcl logo）需要替换。先用 AI 图像生成工具生成了一个 PLC 主题图标（蓝色圆角底 + 白色芯片引脚图案），用 Pillow 转换为多尺寸 ICO 文件（16/32/48/64/128/256）。源代码中优先使用 <code>iconbitmap</code> 加载 ICO 文件，找不到时回退到代码绘制的像素图标。同时通过 PyInstaller <code>--icon</code> 参数将图标嵌入 EXE 文件本身。</p>
+<p>用户随后要求"编译为单文件版"。尝试了 <code>--onefile --noconsole</code>、<code>--onefile --windowed</code>、<code>--onefile</code> + 代码内 <code>FreeConsole</code> 三种方案，均在运行时崩溃（退出码 4294967295）。这是 Python 3.14 + PyInstaller 单文件模式的已知兼容性问题。最终与用户确认后回退到 <code>--onedir</code> 多文件模式，运行验证通过。</p>
+
+<h2>三、技术架构</h2>
+<table>
+<tr><th>层面</th><th>选型</th><th>说明</th></tr>
+<tr><td>编程语言</td><td>Python 3.14</td><td>系统安装路径 <code>C:\Users\Administrator\AppData\Local\Programs\Python\Python314\</code></td></tr>
+<tr><td>GUI 框架</td><td>tkinter + ttk</td><td>Python 标准库，无额外依赖</td></tr>
+<tr><td>主题系统</td><td>THEMES 字典 + ttk Style 动态重配</td><td>运行时切换，无需重启</td></tr>
+<tr><td>窗口效果</td><td>Windows DWM API</td><td>圆角窗口 + 深色标题栏</td></tr>
+<tr><td>打包工具</td><td>PyInstaller 6.21.0</td><td><code>--onedir --noconsole --icon</code></td></tr>
+<tr><td>图标处理</td><td>Pillow</td><td>JPG 转 ICO（多尺寸）</td></tr>
+<tr><td>运行平台</td><td>Windows 10/11 (64 位)</td><td>不依赖 Python 环境</td></tr>
+</table>
+
+<h2>四、核心设计决策</h2>
+
+<h3>4.1 八进制地址池</h3>
+<p>PLC 的 I/O 地址按八进制编排（X0-X7, X10-X17...），而非十进制。地址池生成函数利用 Python 的 <code>oct()</code> 内置函数实现自动转换，池容量设为 16，足以覆盖所有项目（最大需求 12 输入）。</p>
+
+<h3>4.2 单选模式下的结果保留</h3>
+<p>单选模式每次只对一个项目执行分配，但切换到其他项目后，之前已分配的结果不会丢失。<code>self.results</code> 字典以项目 ID 为键持久存储，"复制全部"功能可一次性导出所有已分配过的项目。</p>
+
+<h3>4.3 主题切换的完整性</h3>
+<p>切换主题时需要同步更新三类组件：ttk Style 配置（按钮、标签、Treeview 等）、非 ttk 组件（tk.Canvas 背景）、Treeview 标签颜色（<code>tag_configure</code>）。遗漏任何一类都会导致界面颜色不一致。Windows 标题栏的深浅模式通过 DWM API 的 <code>DWMWA_USE_IMMERSIVE_DARK_MODE</code>（属性 ID 20）控制。</p>
+
+<h3>4.4 中文路径打包策略</h3>
+<p>PyInstaller 在中文路径下打包可能出现编码问题。采用"英文临时目录打包 → 复制到中文目标目录"的两步策略：先将源文件和图标复制到英文路径临时目录，在临时目录执行 PyInstaller，完成后将结果复制到 <code>E:\TraeWork\PLC考试IO随机分配\</code>。</p>
+
+<h2>五、已知限制</h2>
+<p><strong>单文件打包不可用</strong>：Python 3.14 与 PyInstaller <code>--onefile</code> 模式存在兼容性问题，<code>--noconsole</code> 和 <code>--windowed</code> 模式下打包的 EXE 运行即崩溃（退出码 4294967295）。Console 模式可以运行但会闪现控制台窗口。当前使用 <code>--onedir</code> 多文件模式作为替代方案，EXE 依赖同目录下的 <code>_internal</code> 文件夹。</p>
+<p><strong>主题切换不持久化</strong>：切换主题后重启程序会恢复为默认深色主题。如需持久化，可在用户目录下保存主题偏好配置文件。</p>
+
+<h2>六、文件清单</h2>
+<table>
+<tr><th>文件</th><th>大小</th><th>说明</th></tr>
+<tr><td><code>plc_io_random_allocator.py</code></td><td>33 KB</td><td>主程序源代码</td></tr>
+<tr><td><code>app_icon.ico</code></td><td>81 KB</td><td>自定义窗口图标（多尺寸）</td></tr>
+<tr><td><code>app_icon.png</code></td><td>6 KB</td><td>图标 PNG 版本</td></tr>
+<tr><td><code>PLC_IO_RandomAllocator.spec</code></td><td>1 KB</td><td>PyInstaller 打包配置</td></tr>
+<tr><td><code>PLC_IO_RandomAllocator\PLC_IO_RandomAllocator.exe</code></td><td>2.2 MB</td><td>可执行文件</td></tr>
+<tr><td><code>dev_doc.md</code></td><td>7 KB</td><td>开发文档（Markdown）</td></tr>
+<tr><td><code>dev_doc.html</code></td><td>11 KB</td><td>开发文档（网页）</td></tr>
+</table>
+
+<h2>七、后续维护建议</h2>
+<ul>
+<li>如需修改项目数据（I/O 点名称、数量），直接编辑源代码顶部的 <code>PROJECTS</code> 列表</li>
+<li>如需扩展地址池容量，修改 <code>POOL_SIZE</code> 常量（当前为 16）</li>
+<li>如需调整配色，编辑 <code>THEMES</code> 字典中对应主题的颜色值</li>
+<li>重新打包时运行打包脚本，该脚本自动完成清理、打包、复制、验证全流程</li>
+<li>如未来 PyInstaller 修复 Python 3.14 单文件兼容性，可将打包参数改回 <code>--onefile</code></li>
+</ul>
+
+<div class="footer">PLC 实训考核 I/O 随机分配器 · 交接文档 · 生成日期 2026-08-03</div>
+
+</div>
+</body>
+</html>
